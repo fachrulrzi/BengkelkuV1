@@ -3,15 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/midtrans_constants.dart';
 import '../models/booking_model.dart';
 
 class CustomerBookingViewModel extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
-
-  static const String _midtransServerKey = String.fromEnvironment(
-    'MIDTRANS_SERVER_KEY',
-  );
-  static const bool _isSandboxMode = true;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -323,13 +319,13 @@ class CustomerBookingViewModel extends ChangeNotifier {
     String serviceCategory, {
     List<String>? enabledPayments,
   }) async {
-    final String serverKey = _midtransServerKey;
+    final String serverKey = MidtransConstants.serverKey;
     if (serverKey.trim().isEmpty) {
       throw Exception(
         'MIDTRANS_SERVER_KEY belum diset. Jalankan app dengan --dart-define=MIDTRANS_SERVER_KEY=... ',
       );
     }
-    final url = _isSandboxMode
+    final url = MidtransConstants.isSandboxMode
         ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
         : 'https://app.midtrans.com/snap/v1/transactions';
 
@@ -406,16 +402,16 @@ class CustomerBookingViewModel extends ChangeNotifier {
 
   Future<String?> _getMidtransTransactionStatus(String midtransOrderId) async {
     try {
-      if (_midtransServerKey.trim().isEmpty) {
+      if (MidtransConstants.serverKey.trim().isEmpty) {
         debugPrint('[Midtrans] MIDTRANS_SERVER_KEY belum diset.');
         return null;
       }
-      final base = _isSandboxMode
+      final base = MidtransConstants.isSandboxMode
           ? 'https://api.sandbox.midtrans.com'
           : 'https://api.midtrans.com';
       final url = '$base/v2/$midtransOrderId/status';
       final basicAuth =
-          'Basic ${base64Encode(utf8.encode('$_midtransServerKey:'))}';
+          'Basic ${base64Encode(utf8.encode('${MidtransConstants.serverKey}:'))}';
 
       final res = await http
           .get(

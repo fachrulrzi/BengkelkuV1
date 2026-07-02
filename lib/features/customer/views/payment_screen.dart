@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/midtrans_constants.dart';
 import '../../bengkel/models/sparepart_model.dart';
 import '../viewmodels/customer_marketplace_viewmodel.dart';
 import '../viewmodels/customer_dashboard_viewmodel.dart';
@@ -29,14 +30,6 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  // --- Midtrans Environment & API Key Configuration ---
-  // PENTING: Untuk menggunakan Sandbox, masukkan Sandbox Server Key Anda (selalu berawalan 'SB-Mid-server-').
-  // Jika menggunakan Production, masukkan Production Server Key (selalu berawalan 'Mid-server-').
-  static const String _midtransServerKey = String.fromEnvironment(
-    'MIDTRANS_SERVER_KEY',
-  );
-  static const bool _isSandboxMode = true;
-
   String _selectedMethod = 'gopay'; // Default selection
   String _selectedBank =
       'bca'; // Default bank selection if bank transfer is selected
@@ -231,13 +224,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
     double amount,
     AuthViewModel authViewModel,
   ) async {
-    final String serverKey = _midtransServerKey;
+    final String serverKey = MidtransConstants.serverKey;
     if (serverKey.trim().isEmpty) {
       throw Exception(
         'MIDTRANS_SERVER_KEY belum diset. Jalankan app dengan --dart-define=MIDTRANS_SERVER_KEY=... ',
       );
     }
-    final url = _isSandboxMode
+    final url = MidtransConstants.isSandboxMode
         ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
         : 'https://app.midtrans.com/snap/v1/transactions';
 
