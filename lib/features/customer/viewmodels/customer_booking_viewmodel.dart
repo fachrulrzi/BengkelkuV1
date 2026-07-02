@@ -6,6 +6,11 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/midtrans_constants.dart';
 import '../models/booking_model.dart';
 
+// URL & anon key Supabase project (dipakai untuk memanggil Edge Function)
+const _kSupabaseUrl = 'https://xowudhicrbgjcplvkqnb.supabase.co';
+const _kAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhvd3VkaGljcmJnamNwbHZrcW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyNDYxNDYsImV4cCI6MjA2NTgyMjE0Nn0.V26xUFNLRsLkO7x5J8DCJX5B0zVE4fOyekMvLlg9fNo';
+
 class CustomerBookingViewModel extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -313,30 +318,18 @@ class CustomerBookingViewModel extends ChangeNotifier {
     }
   }
 
+
+  /// Memanggil Supabase Edge Function untuk membuat transaksi Midtrans.
+  /// Server Key Midtrans disimpan aman di Supabase Secrets, tidak di kode Flutter.
   Future<String?> _createMidtransTransaction(
     String orderId,
     double amount,
     String serviceCategory, {
     List<String>? enabledPayments,
   }) async {
-    final String serverKey = MidtransConstants.serverKey;
-    if (serverKey.trim().isEmpty) {
-      throw Exception(
-        'MIDTRANS_SERVER_KEY belum diset. Jalankan app dengan --dart-define=MIDTRANS_SERVER_KEY=... ',
-      );
-    }
-    final url = MidtransConstants.isSandboxMode
-        ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
-        : 'https://app.midtrans.com/snap/v1/transactions';
-
-    // Midtrans menolak gross_amount = 0. Pastikan minimal 1.
-    // gross_amount juga tidak boleh melebihi 10 digit.
     final grossAmount = amount.toInt().clamp(1, 999999999);
-
-    final basicAuth = 'Basic ${base64Encode(utf8.encode('$serverKey:'))}';
     final user = _supabase.auth.currentUser;
 
-    // Nama item tampil di halaman Snap Midtrans — potong supaya aman.
     final String itemName = serviceCategory.isEmpty
         ? 'Jasa Layanan Bengkel'
         : (serviceCategory.length > 45
@@ -348,57 +341,63 @@ class CustomerBookingViewModel extends ChangeNotifier {
       'item_details': [
         {'id': orderId, 'name': itemName, 'price': grossAmount, 'quantity': 1},
       ],
-      'credit_card': {'secure': true},
-      if (enabledPayments != null && enabledPayments.isNotEmpty)
-        'enabled_payments': enabledPayments,
       'customer_details': {
         'first_name': user?.email?.split('@').first ?? 'Customer',
         'email': user?.email ?? 'customer@bengkelin.com',
       },
-      'expiry': {'unit': 'minute', 'duration': 1440},
-      // Callbacks: setelah bayar, Midtrans Snap redirect ke URL ini.
-      // MidtransSnapScreen memonitor URL ini untuk auto-close WebView &
-      // melaporkan hasil pembayaran (success/pending/error).
-      'callbacks': {'finish': 'bengkelin://payment/finish'},
+      if (enabledPayments != null && enabledPayments.isNotEmpty)
+        'enabled_payments': enabledPayments,
     };
 
+    const edgeFunctionUrl =
+        '$_kSupabaseUrl/functions/v1/create_midtrans_transaction';
+
     try {
+      // Gunakan access token user yang login, atau anon key sebagai fallback
+      final session = _supabase.auth.currentSession;
+      final authHeader = session != null
+          ? 'Bearer ${session.accessToken}'
+          : 'Bearer $_kAnonKey';
+
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(edgeFunctionUrl),
         headers: {
-          'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': basicAuth,
+          'Authorization': authHeader,
+          'apikey': _kAnonKey,
         },
         body: jsonEncode(body),
       );
 
-      debugPrint('[Midtrans-Booking] POST $url');
-      debugPrint('[Midtrans-Booking] Status: ${response.statusCode}');
-      debugPrint('[Midtrans-Booking] Response: ${response.body}');
+      debugPrint(
+        '[Midtrans-Booking] Edge Function Status: ${response.statusCode}',
+      );
+      debugPrint(
+        '[Midtrans-Booking] Edge Function Response: ${response.body}',
+      );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        return data['redirect_url'];
+        if (data['redirect_url'] != null) {
+          return data['redirect_url'] as String;
+        } else if (data['error'] != null) {
+          throw Exception('Midtrans Error: ${data['error']}');
+        }
+        return null;
       } else {
-        // Parse error message dari Midtrans jika ada
         String errorMsg = response.body;
         try {
           final errData = jsonDecode(response.body);
-          if (errData['error_messages'] is List) {
-            errorMsg = (errData['error_messages'] as List).join('\n');
-          }
+          errorMsg = errData['error']?.toString() ?? response.body;
         } catch (_) {}
-        throw Exception(
-          'Status ${response.statusCode}: $errorMsg\n\n'
-          'Pastikan Sandbox Server Key di dashboard Midtrans sudah benar.',
-        );
+        throw Exception('Gagal membuat transaksi: $errorMsg');
       }
     } catch (e) {
       debugPrint('[Midtrans-Booking] Exception: $e');
-      throw Exception('Gagal menghubungi server Midtrans: $e');
+      throw Exception('Gagal menghubungi server pembayaran: $e');
     }
   }
+
 
   Future<String?> _getMidtransTransactionStatus(String midtransOrderId) async {
     try {

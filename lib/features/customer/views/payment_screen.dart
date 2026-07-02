@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/midtrans_constants.dart';
 import '../../bengkel/models/sparepart_model.dart';
@@ -14,6 +15,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'customer_main_screen.dart';
 import 'midtrans_snap_screen.dart';
+
 
 class PaymentScreen extends StatefulWidget {
   final List<String> selectedItemIds;
@@ -224,23 +226,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     double amount,
     AuthViewModel authViewModel,
   ) async {
-    final String serverKey = MidtransConstants.serverKey;
-    if (serverKey.trim().isEmpty) {
-      throw Exception(
-        'MIDTRANS_SERVER_KEY belum diset. Jalankan app dengan --dart-define=MIDTRANS_SERVER_KEY=... ',
-      );
-    }
-    final url = MidtransConstants.isSandboxMode
-        ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
-        : 'https://app.midtrans.com/snap/v1/transactions';
-
-    final basicAuth = 'Basic ${base64Encode(utf8.encode('$serverKey:'))}';
+    // Midtrans menolak gross_amount = 0. Pastikan minimal 1.
+    final grossAmount = amount.toInt().clamp(1, 999999999);
     final user = authViewModel.currentUser;
 
-    // Pastikan gross_amount minimal 1
-    final grossAmount = amount.toInt().clamp(1, 999999999);
-
-    // Bangun customer_details — hindari field kosong yang bisa ditolak Midtrans
+    // Bangun customer_details
     final String firstName = _isPickup
         ? 'Customer'
         : (_recipientName != null && _recipientName!.isNotEmpty
@@ -266,22 +256,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
       'credit_card': {'secure': true},
       'enabled_payments': _getEnabledPayments(),
       'customer_details': customerDetails,
-      'expiry': {'unit': 'minute', 'duration': 1440},
-      // Callbacks: setelah bayar, Midtrans Snap redirect ke URL ini.
-      // MidtransSnapScreen memonitor URL ini untuk auto-close WebView.
-      'callbacks': {'finish': 'bengkelin://payment/finish'},
     };
 
-    debugPrint('[Midtrans] POST $url');
+    // URL Supabase Edge Function (bukan Midtrans langsung)
+    const edgeFunctionUrl =
+        'https://xowudhicrbgjcplvkqnb.supabase.co/functions/v1/create_midtrans_transaction';
+    const anonKey =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhvd3VkaGljcmJnamNwbHZrcW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAyNDYxNDYsImV4cCI6MjA2NTgyMjE0Nn0.V26xUFNLRsLkO7x5J8DCJX5B0zVE4fOyekMvLlg9fNo';
+
+    final supabase = Supabase.instance.client;
+    final session = supabase.auth.currentSession;
+    final authHeader = session != null
+        ? 'Bearer ${session.accessToken}'
+        : 'Bearer $anonKey';
+
+    debugPrint('[Midtrans] POST $edgeFunctionUrl');
     debugPrint('[Midtrans] Body: ${jsonEncode(body)}');
 
     try {
       final response = await http.post(
-        Uri.parse(url),
+        Uri.parse(edgeFunctionUrl),
         headers: {
-          'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': basicAuth,
+          'Authorization': authHeader,
+          'apikey': anonKey,
         },
         body: jsonEncode(body),
       );
@@ -291,20 +289,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        return data['redirect_url'];
+        if (data['redirect_url'] != null) {
+          return data['redirect_url'] as String;
+        } else if (data['error'] != null) {
+          throw Exception('Midtrans Error: ${data['error']}');
+        }
+        return null;
       } else {
-        // Parse error message dari Midtrans jika ada
         String errorMsg = response.body;
         try {
           final errData = jsonDecode(response.body);
-          if (errData['error_messages'] is List) {
-            errorMsg = (errData['error_messages'] as List).join('\n');
-          }
+          errorMsg = errData['error']?.toString() ?? response.body;
         } catch (_) {}
-        throw Exception(
-          'Status ${response.statusCode}: $errorMsg\n\n'
-          'Pastikan Sandbox Server Key di dashboard Midtrans sudah benar.',
-        );
+        throw Exception('Gagal membuat transaksi: $errorMsg');
       }
     } on Exception {
       rethrow;
