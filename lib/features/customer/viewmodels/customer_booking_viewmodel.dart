@@ -8,7 +8,9 @@ import '../models/booking_model.dart';
 class CustomerBookingViewModel extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  static const String _midtransServerKey = 'YOUR_SERVER_KEY';
+  static const String _midtransServerKey = String.fromEnvironment(
+    'MIDTRANS_SERVER_KEY',
+  );
   static const bool _isSandboxMode = true;
 
   bool _isLoading = false;
@@ -30,7 +32,8 @@ class CustomerBookingViewModel extends ChangeNotifier {
     final shortId = bookingId.replaceAll('-', '').substring(0, 8).toUpperCase();
     final now = DateTime.now();
     // YYMMDDHHmmss (12 digit) — cukup unik per detik
-    final ts = '${now.year.toString().substring(2)}'
+    final ts =
+        '${now.year.toString().substring(2)}'
         '${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}'
         '${now.hour.toString().padLeft(2, '0')}'
@@ -52,7 +55,9 @@ class CustomerBookingViewModel extends ChangeNotifier {
           .order('created_at', ascending: false);
 
       final List<dynamic> data = response;
-      final List<BookingModel> dbBookings = data.map((e) => BookingModel.fromJson(e)).toList();
+      final List<BookingModel> dbBookings = data
+          .map((e) => BookingModel.fromJson(e))
+          .toList();
 
       // Sync payment statuses from Midtrans/local expiry
       await _syncUnpaidBookingsStatus(dbBookings);
@@ -73,7 +78,10 @@ class CustomerBookingViewModel extends ChangeNotifier {
     }
   }
 
-  Future<List<BookingModel>> fetchBookingsForBengkelAndDate(String bengkelId, String dateStr) async {
+  Future<List<BookingModel>> fetchBookingsForBengkelAndDate(
+    String bengkelId,
+    String dateStr,
+  ) async {
     try {
       final response = await _supabase
           .from('service_bookings')
@@ -149,7 +157,7 @@ class CustomerBookingViewModel extends ChangeNotifier {
           .from('service_bookings')
           .update({'status': 'Dibatalkan'})
           .eq('id', bookingId);
-          
+
       await fetchBookings();
     } catch (e) {
       debugPrint('Error cancelling booking: $e');
@@ -159,7 +167,10 @@ class CustomerBookingViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String?> payInitialFee(String bookingId, {List<String>? enabledPayments}) async {
+  Future<String?> payInitialFee(
+    String bookingId, {
+    List<String>? enabledPayments,
+  }) async {
     _setLoading(true);
     try {
       final res = await _supabase
@@ -183,11 +194,14 @@ class CustomerBookingViewModel extends ChangeNotifier {
 
       if (redirectUrl != null) {
         final paymentExpiry = DateTime.now().add(const Duration(minutes: 1440));
-        await _supabase.from('service_bookings').update({
-          'midtrans_order_id': midtransOrderId,
-          'payment_url': redirectUrl,
-          'payment_expires_at': paymentExpiry.toIso8601String(),
-        }).eq('id', bookingId);
+        await _supabase
+            .from('service_bookings')
+            .update({
+              'midtrans_order_id': midtransOrderId,
+              'payment_url': redirectUrl,
+              'payment_expires_at': paymentExpiry.toIso8601String(),
+            })
+            .eq('id', bookingId);
       }
 
       await fetchBookings();
@@ -258,7 +272,10 @@ class CustomerBookingViewModel extends ChangeNotifier {
     }
   }
 
-  Future<String?> payAdditionalFee(String bookingId, {List<String>? enabledPayments}) async {
+  Future<String?> payAdditionalFee(
+    String bookingId, {
+    List<String>? enabledPayments,
+  }) async {
     _setLoading(true);
     try {
       final res = await _supabase
@@ -280,11 +297,14 @@ class CustomerBookingViewModel extends ChangeNotifier {
 
       if (redirectUrl != null) {
         final paymentExpiry = DateTime.now().add(const Duration(minutes: 1440));
-        await _supabase.from('service_bookings').update({
-          'midtrans_order_id': midtransOrderId,
-          'payment_url': redirectUrl,
-          'payment_expires_at': paymentExpiry.toIso8601String(),
-        }).eq('id', bookingId);
+        await _supabase
+            .from('service_bookings')
+            .update({
+              'midtrans_order_id': midtransOrderId,
+              'payment_url': redirectUrl,
+              'payment_expires_at': paymentExpiry.toIso8601String(),
+            })
+            .eq('id', bookingId);
       }
 
       await fetchBookings();
@@ -304,6 +324,11 @@ class CustomerBookingViewModel extends ChangeNotifier {
     List<String>? enabledPayments,
   }) async {
     final String serverKey = _midtransServerKey;
+    if (serverKey.trim().isEmpty) {
+      throw Exception(
+        'MIDTRANS_SERVER_KEY belum diset. Jalankan app dengan --dart-define=MIDTRANS_SERVER_KEY=... ',
+      );
+    }
     final url = _isSandboxMode
         ? 'https://app.sandbox.midtrans.com/snap/v1/transactions'
         : 'https://app.midtrans.com/snap/v1/transactions';
@@ -319,21 +344,13 @@ class CustomerBookingViewModel extends ChangeNotifier {
     final String itemName = serviceCategory.isEmpty
         ? 'Jasa Layanan Bengkel'
         : (serviceCategory.length > 45
-            ? '${serviceCategory.substring(0, 45)}...'
-            : serviceCategory);
+              ? '${serviceCategory.substring(0, 45)}...'
+              : serviceCategory);
 
     final Map<String, dynamic> body = {
-      'transaction_details': {
-        'order_id': orderId,
-        'gross_amount': grossAmount,
-      },
+      'transaction_details': {'order_id': orderId, 'gross_amount': grossAmount},
       'item_details': [
-        {
-          'id': orderId,
-          'name': itemName,
-          'price': grossAmount,
-          'quantity': 1,
-        }
+        {'id': orderId, 'name': itemName, 'price': grossAmount, 'quantity': 1},
       ],
       'credit_card': {'secure': true},
       if (enabledPayments != null && enabledPayments.isNotEmpty)
@@ -346,9 +363,7 @@ class CustomerBookingViewModel extends ChangeNotifier {
       // Callbacks: setelah bayar, Midtrans Snap redirect ke URL ini.
       // MidtransSnapScreen memonitor URL ini untuk auto-close WebView &
       // melaporkan hasil pembayaran (success/pending/error).
-      'callbacks': {
-        'finish': 'bengkelin://payment/finish',
-      },
+      'callbacks': {'finish': 'bengkelin://payment/finish'},
     };
 
     try {
@@ -391,22 +406,31 @@ class CustomerBookingViewModel extends ChangeNotifier {
 
   Future<String?> _getMidtransTransactionStatus(String midtransOrderId) async {
     try {
+      if (_midtransServerKey.trim().isEmpty) {
+        debugPrint('[Midtrans] MIDTRANS_SERVER_KEY belum diset.');
+        return null;
+      }
       final base = _isSandboxMode
           ? 'https://api.sandbox.midtrans.com'
           : 'https://api.midtrans.com';
       final url = '$base/v2/$midtransOrderId/status';
-      final basicAuth = 'Basic ${base64Encode(utf8.encode('$_midtransServerKey:'))}';
+      final basicAuth =
+          'Basic ${base64Encode(utf8.encode('$_midtransServerKey:'))}';
 
-      final res = await http.get(
-        Uri.parse(url),
-        headers: {'Accept': 'application/json', 'Authorization': basicAuth},
-      ).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(
+            Uri.parse(url),
+            headers: {'Accept': 'application/json', 'Authorization': basicAuth},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (res.statusCode == 200 || res.statusCode == 201) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         return data['transaction_status']?.toString();
       } else if (res.statusCode == 404) {
-        debugPrint('[Midtrans] Status 404 untuk $midtransOrderId (belum ada transaksi)');
+        debugPrint(
+          '[Midtrans] Status 404 untuk $midtransOrderId (belum ada transaksi)',
+        );
         return 'pending';
       } else {
         debugPrint('[Midtrans] Status code ${res.statusCode}: ${res.body}');
@@ -418,34 +442,52 @@ class CustomerBookingViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _syncUnpaidBookingsStatus(List<BookingModel> bookingsList) async {
+  Future<void> _syncUnpaidBookingsStatus(
+    List<BookingModel> bookingsList,
+  ) async {
     final now = DateTime.now();
     for (final booking in bookingsList) {
       // 1) Cek status pembayaran awal (initial)
       if (booking.initialPaymentStatus == 'unpaid' &&
           booking.status == 'Menunggu Pembayaran Jasa') {
         // Cek expiry lokal
-        if (booking.paymentExpiresAt != null && now.isAfter(booking.paymentExpiresAt!)) {
+        if (booking.paymentExpiresAt != null &&
+            now.isAfter(booking.paymentExpiresAt!)) {
           await _markBookingPaymentStatus(booking, 'expired', isInitial: true);
           continue;
         }
 
         // Verifikasi Midtrans jika ada order ID
-        if (booking.midtransOrderId != null && !booking.midtransOrderId!.startsWith('SB-ADD')) {
-          final midtransStatus = await _getMidtransTransactionStatus(booking.midtransOrderId!);
+        if (booking.midtransOrderId != null &&
+            !booking.midtransOrderId!.startsWith('SB-ADD')) {
+          final midtransStatus = await _getMidtransTransactionStatus(
+            booking.midtransOrderId!,
+          );
           if (midtransStatus != null) {
             switch (midtransStatus.toLowerCase()) {
               case 'settlement':
               case 'capture':
-                await _markBookingPaymentStatus(booking, 'paid', isInitial: true);
+                await _markBookingPaymentStatus(
+                  booking,
+                  'paid',
+                  isInitial: true,
+                );
                 break;
               case 'expire':
-                await _markBookingPaymentStatus(booking, 'expired', isInitial: true);
+                await _markBookingPaymentStatus(
+                  booking,
+                  'expired',
+                  isInitial: true,
+                );
                 break;
               case 'deny':
               case 'failure':
               case 'cancel':
-                await _markBookingPaymentStatus(booking, 'failed', isInitial: true);
+                await _markBookingPaymentStatus(
+                  booking,
+                  'failed',
+                  isInitial: true,
+                );
                 break;
             }
           }
@@ -454,29 +496,46 @@ class CustomerBookingViewModel extends ChangeNotifier {
 
       // 2) Cek status pembayaran tambahan (additional/pelunasan)
       if (booking.additionalPaymentStatus == 'unpaid' &&
-          (booking.status == 'Menunggu Pembayaran Tambahan' || booking.status == 'Menunggu Pelunasan')) {
+          (booking.status == 'Menunggu Pembayaran Tambahan' ||
+              booking.status == 'Menunggu Pelunasan')) {
         // Cek expiry lokal
-        if (booking.paymentExpiresAt != null && now.isAfter(booking.paymentExpiresAt!)) {
+        if (booking.paymentExpiresAt != null &&
+            now.isAfter(booking.paymentExpiresAt!)) {
           await _markBookingPaymentStatus(booking, 'expired', isInitial: false);
           continue;
         }
 
         // Verifikasi Midtrans jika ada order ID
-        if (booking.midtransOrderId != null && booking.midtransOrderId!.startsWith('SB-ADD')) {
-          final midtransStatus = await _getMidtransTransactionStatus(booking.midtransOrderId!);
+        if (booking.midtransOrderId != null &&
+            booking.midtransOrderId!.startsWith('SB-ADD')) {
+          final midtransStatus = await _getMidtransTransactionStatus(
+            booking.midtransOrderId!,
+          );
           if (midtransStatus != null) {
             switch (midtransStatus.toLowerCase()) {
               case 'settlement':
               case 'capture':
-                await _markBookingPaymentStatus(booking, 'paid', isInitial: false);
+                await _markBookingPaymentStatus(
+                  booking,
+                  'paid',
+                  isInitial: false,
+                );
                 break;
               case 'expire':
-                await _markBookingPaymentStatus(booking, 'expired', isInitial: false);
+                await _markBookingPaymentStatus(
+                  booking,
+                  'expired',
+                  isInitial: false,
+                );
                 break;
               case 'deny':
               case 'failure':
               case 'cancel':
-                await _markBookingPaymentStatus(booking, 'failed', isInitial: false);
+                await _markBookingPaymentStatus(
+                  booking,
+                  'failed',
+                  isInitial: false,
+                );
                 break;
             }
           }
@@ -485,10 +544,14 @@ class CustomerBookingViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _markBookingPaymentStatus(BookingModel booking, String status, {required bool isInitial}) async {
+  Future<void> _markBookingPaymentStatus(
+    BookingModel booking,
+    String status, {
+    required bool isInitial,
+  }) async {
     try {
       final updateData = <String, dynamic>{};
-      
+
       if (isInitial) {
         updateData['initial_payment_status'] = status;
         if (status == 'paid') {
@@ -517,8 +580,13 @@ class CustomerBookingViewModel extends ChangeNotifier {
         }
       }
 
-      await _supabase.from('service_bookings').update(updateData).eq('id', booking.id);
-      debugPrint('[Payment] Booking ${booking.id} updated isInitial=$isInitial status=$status');
+      await _supabase
+          .from('service_bookings')
+          .update(updateData)
+          .eq('id', booking.id);
+      debugPrint(
+        '[Payment] Booking ${booking.id} updated isInitial=$isInitial status=$status',
+      );
     } catch (e) {
       debugPrint('[Payment] Failed to update booking payment status: $e');
     }
@@ -534,12 +602,15 @@ class CustomerBookingViewModel extends ChangeNotifier {
     _setLoading(true);
     try {
       // 1. Update rating di tabel service_bookings
-      await _supabase.from('service_bookings').update({
-        'rating_score': rating,
-        'rating_comment': comment,
-        'rating_mechanic_name': mechanicName,
-        'status': 'Ulasan Dikirim',
-      }).eq('id', bookingId);
+      await _supabase
+          .from('service_bookings')
+          .update({
+            'rating_score': rating,
+            'rating_comment': comment,
+            'rating_mechanic_name': mechanicName,
+            'status': 'Ulasan Dikirim',
+          })
+          .eq('id', bookingId);
 
       // 2. Update rating rata-rata mekanik di tabel mechanics jika mechanicId ada
       if (mechanicId.isNotEmpty) {
@@ -557,10 +628,13 @@ class CustomerBookingViewModel extends ChangeNotifier {
           }
           double avgRating = sum / ratingsList.length;
 
-          await _supabase.from('mechanics').update({
-            'rating': avgRating,
-            'services_count': ratingsList.length,
-          }).eq('id', mechanicId);
+          await _supabase
+              .from('mechanics')
+              .update({
+                'rating': avgRating,
+                'services_count': ratingsList.length,
+              })
+              .eq('id', mechanicId);
         }
       }
 
