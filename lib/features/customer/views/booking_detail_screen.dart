@@ -98,6 +98,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         return Colors.amber.shade700;
       case 'Menunggu Pembayaran Jasa':
       case 'Menunggu Pembayaran Tambahan':
+      case 'Menunggu Pelunasan':
         return Colors.deepOrange;
       case 'Diproses':
       case 'Mekanik Ditugaskan':
@@ -446,11 +447,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: activeBooking.status == 'Menunggu Pembayaran Tambahan'
+                    color: (activeBooking.status == 'Menunggu Pembayaran Tambahan' || activeBooking.status == 'Menunggu Pelunasan')
                         ? Colors.deepOrange.shade50
                         : Colors.white,
                     border: Border.all(
-                      color: activeBooking.status == 'Menunggu Pembayaran Tambahan'
+                      color: (activeBooking.status == 'Menunggu Pembayaran Tambahan' || activeBooking.status == 'Menunggu Pelunasan')
                           ? Colors.deepOrange.shade200
                           : Colors.grey.shade200,
                     ),
@@ -460,12 +461,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        activeBooking.status == 'Menunggu Pembayaran Tambahan'
-                            ? 'Pekerjaan Selesai - Butuh Biaya Tambahan'
+                        (activeBooking.status == 'Menunggu Pembayaran Tambahan' || activeBooking.status == 'Menunggu Pelunasan')
+                            ? (activeBooking.status == 'Menunggu Pelunasan' ? 'Pekerjaan Selesai - Butuh Pelunasan' : 'Pekerjaan Selesai - Butuh Biaya Tambahan')
                             : 'Pekerjaan Selesai',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: activeBooking.status == 'Menunggu Pembayaran Tambahan'
+                          color: (activeBooking.status == 'Menunggu Pembayaran Tambahan' || activeBooking.status == 'Menunggu Pelunasan')
                               ? Colors.deepOrange
                               : Colors.green.shade700,
                         ),
@@ -481,7 +482,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: activeBooking.status == 'Menunggu Pembayaran Tambahan'
+                          color: (activeBooking.status == 'Menunggu Pembayaran Tambahan' || activeBooking.status == 'Menunggu Pelunasan')
                               ? Colors.deepOrange
                               : Colors.black87,
                         ),
@@ -508,7 +509,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                           ),
                         ),
                       ],
-                      if (activeBooking.status == 'Menunggu Pembayaran Tambahan') ...[
+                      if (activeBooking.status == 'Menunggu Pembayaran Tambahan' || activeBooking.status == 'Menunggu Pelunasan') ...[
                         const Divider(height: 24),
                         _buildPaymentExpiresAtCountdown(activeBooking),
                         const SizedBox(height: 4),
@@ -575,7 +576,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                                   ),
                                 );
                               },
-                              child: const Text('Bayar Tagihan Tambahan', style: TextStyle(fontWeight: FontWeight.bold)),
+                              child: Text(activeBooking.status == 'Menunggu Pelunasan' ? 'Bayar Pelunasan' : 'Bayar Tagihan Tambahan', style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],

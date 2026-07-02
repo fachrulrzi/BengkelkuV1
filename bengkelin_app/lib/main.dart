@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 import 'core/constants/app_colors.dart';
 import 'features/auth/viewmodels/auth_viewmodel.dart';
 import 'features/auth/views/splash_screen.dart';
@@ -78,6 +79,29 @@ class BengkelinApp extends StatelessWidget {
         scaffoldBackgroundColor: AppColors.background,
         textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
         useMaterial3: true,
+      ),
+      builder: (context, child) => ResponsiveBreakpoints.builder(
+        child: Builder(
+          builder: (context) {
+            return ResponsiveScaledBox(
+              width: ResponsiveValue<double>(
+                context,
+                conditionalValues: [
+                  Condition.equals(name: MOBILE, value: 390),
+                  Condition.equals(name: TABLET, value: 800),
+                  Condition.equals(name: DESKTOP, value: 1200),
+                ],
+                defaultValue: 390,
+              ).value,
+              child: child!,
+            );
+          },
+        ),
+        breakpoints: [
+          const Breakpoint(start: 0, end: 450, name: MOBILE),
+          const Breakpoint(start: 451, end: 800, name: TABLET),
+          const Breakpoint(start: 801, end: 1920, name: DESKTOP),
+        ],
       ),
       home: const SplashScreen(),
     );

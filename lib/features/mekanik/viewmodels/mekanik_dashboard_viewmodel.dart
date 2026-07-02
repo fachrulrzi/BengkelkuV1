@@ -82,7 +82,7 @@ class MekanikDashboardViewModel extends ChangeNotifier {
           .from('service_bookings')
           .select('*, users:customer_id(full_name, phone)')
           .eq('mechanic_id', _mechanicId!)
-          .not('status', 'in', '("Selesai","Dibatalkan","Ulasan Dikirim","Menunggu Pembayaran Tambahan")')
+          .not('status', 'in', '("Selesai","Dibatalkan","Ulasan Dikirim","Menunggu Pembayaran Tambahan","Menunggu Pelunasan")')
           .order('booking_date', ascending: true)
           .order('booking_time', ascending: true);
       _activeTasks =
@@ -116,7 +116,7 @@ class MekanikDashboardViewModel extends ChangeNotifier {
           .from('service_bookings')
           .select('*, users:customer_id(full_name, phone)')
           .eq('mechanic_id', _mechanicId!)
-          .inFilter('status', ['Selesai', 'Ulasan Dikirim', 'Menunggu Pembayaran Tambahan'])
+          .inFilter('status', ['Selesai', 'Ulasan Dikirim', 'Menunggu Pembayaran Tambahan', 'Menunggu Pelunasan'])
           .order('booking_date', ascending: false)
           .order('booking_time', ascending: false);
       _completedTasks = (completedData as List)
@@ -310,7 +310,20 @@ class MekanikDashboardViewModel extends ChangeNotifier {
     String? serviceProofUrl,
   }) async {
     try {
-      final finalStatus = additionalPrice > 0 ? 'Menunggu Pembayaran Tambahan' : 'Selesai';
+      // Ambil detail booking untuk cek kategori service
+      final bookingRes = await _supabase
+          .from('service_bookings')
+          .select('service_category')
+          .eq('id', bookingId)
+          .single();
+      
+      final serviceCategory = bookingRes['service_category']?.toString();
+      final isSos = serviceCategory == 'SOS';
+
+      final finalStatus = isSos
+          ? (additionalPrice > 0 ? 'Menunggu Pelunasan' : 'Selesai')
+          : (additionalPrice > 0 ? 'Menunggu Pembayaran Tambahan' : 'Selesai');
+          
       final totalPrice = initialPaymentAmount + additionalPrice;
 
       await _supabase.from('service_bookings').update({
@@ -320,6 +333,8 @@ class MekanikDashboardViewModel extends ChangeNotifier {
         'additional_payment_status': additionalPrice > 0 ? 'unpaid' : 'none',
         'total_price': totalPrice,
         'service_proof_url': serviceProofUrl,
+        'midtrans_order_id': null,
+        'payment_url': null,
       }).eq('id', bookingId);
 
       // Mekanik kembali Tersedia

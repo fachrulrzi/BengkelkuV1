@@ -12,8 +12,8 @@ class CustomerMarketplaceViewModel extends ChangeNotifier {
 
   // --- Midtrans config (dipakai untuk verifikasi status pembayaran) ---
   // HARUS sama dengan yang ada di PaymentScreen.
-  static const String _midtransServerKey = 'YOUR_MIDTRANS_SERVER_KEY';
-  static const bool _isSandboxMode = true; // true = Sandbox, false = Production
+  static const String _midtransServerKey = 'YOUR_SERVER_KEY';
+  static const bool _isSandboxMode = true;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;

@@ -204,12 +204,15 @@ BEGIN
         -- Notify Mechanic if assigned
         IF (NEW.status = 'Mekanik Ditugaskan' OR (NEW.status = OLD.status AND OLD.mechanic_id IS NULL AND NEW.mechanic_id IS NOT NULL)) THEN
             IF NEW.mechanic_id IS NOT NULL THEN
-                INSERT INTO public.notifications (user_id, title, message)
-                VALUES (
-                    NEW.mechanic_id,
-                    'Tugas Servis Baru',
-                    'Anda telah ditugaskan untuk pengerjaan booking ' || v_booking_code || ' (' || COALESCE(NEW.service_category, 'Servis') || ').'
-                );
+                -- Check if mechanic exists in users table (since notifications has foreign key users.id)
+                IF EXISTS (SELECT 1 FROM public.users WHERE id = NEW.mechanic_id) THEN
+                    INSERT INTO public.notifications (user_id, title, message)
+                    VALUES (
+                        NEW.mechanic_id,
+                        'Tugas Servis Baru',
+                        'Anda telah ditugaskan untuk pengerjaan booking ' || v_booking_code || ' (' || COALESCE(NEW.service_category, 'Servis') || ').'
+                    );
+                END IF;
             END IF;
         END IF;
     END IF;

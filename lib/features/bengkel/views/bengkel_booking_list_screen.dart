@@ -29,6 +29,7 @@ class _BengkelBookingListScreenState extends State<BengkelBookingListScreen> {
           statusInDb == 'Sampai Lokasi' ||
           statusInDb == 'Menunggu Pembayaran Jasa' ||
           statusInDb == 'Menunggu Pembayaran Tambahan' ||
+          statusInDb == 'Menunggu Pelunasan' ||
           statusInDb == 'Pembayaran Awal Lunas';
     }
     if (tab == 'Selesai') return statusInDb == 'Selesai' || statusInDb == 'Ulasan Dikirim';
@@ -61,7 +62,7 @@ class _BengkelBookingListScreenState extends State<BengkelBookingListScreen> {
         status == 'Pembayaran Awal Lunas') {
       return Colors.blue;
     }
-    if (status == 'Menunggu Pembayaran Jasa' || status == 'Menunggu Pembayaran Tambahan') {
+    if (status == 'Menunggu Pembayaran Jasa' || status == 'Menunggu Pembayaran Tambahan' || status == 'Menunggu Pelunasan') {
       return Colors.amber.shade800;
     }
     if (status == 'Selesai' || status == 'Ulasan Dikirim') return const Color(0xFF00C853);

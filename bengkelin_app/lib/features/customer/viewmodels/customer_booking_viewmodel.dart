@@ -8,7 +8,7 @@ import '../models/booking_model.dart';
 class CustomerBookingViewModel extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  static const String _midtransServerKey = '';
+  static const String _midtransServerKey = 'YOUR_SERVER_KEY';
   static const bool _isSandboxMode = true;
 
   bool _isLoading = false;
@@ -210,6 +210,8 @@ class CustomerBookingViewModel extends ChangeNotifier {
     required String complaint,
     required String customerAddress,
     required int travelFee,
+    double? latitude,
+    double? longitude,
   }) async {
     _setLoading(true);
     try {
@@ -235,6 +237,8 @@ class CustomerBookingViewModel extends ChangeNotifier {
         'initial_payment_amount': travelFee,
         'initial_payment_status': 'unpaid',
         'estimated_duration': 60, // Default duration of 1 hour for SOS
+        'latitude': latitude,
+        'longitude': longitude,
       };
 
       final response = await _supabase
@@ -427,7 +431,7 @@ class CustomerBookingViewModel extends ChangeNotifier {
         }
 
         // Verifikasi Midtrans jika ada order ID
-        if (booking.midtransOrderId != null) {
+        if (booking.midtransOrderId != null && !booking.midtransOrderId!.startsWith('SB-ADD')) {
           final midtransStatus = await _getMidtransTransactionStatus(booking.midtransOrderId!);
           if (midtransStatus != null) {
             switch (midtransStatus.toLowerCase()) {
@@ -448,9 +452,9 @@ class CustomerBookingViewModel extends ChangeNotifier {
         }
       }
 
-      // 2) Cek status pembayaran tambahan (additional)
+      // 2) Cek status pembayaran tambahan (additional/pelunasan)
       if (booking.additionalPaymentStatus == 'unpaid' &&
-          booking.status == 'Menunggu Pembayaran Tambahan') {
+          (booking.status == 'Menunggu Pembayaran Tambahan' || booking.status == 'Menunggu Pelunasan')) {
         // Cek expiry lokal
         if (booking.paymentExpiresAt != null && now.isAfter(booking.paymentExpiresAt!)) {
           await _markBookingPaymentStatus(booking, 'expired', isInitial: false);
@@ -458,7 +462,7 @@ class CustomerBookingViewModel extends ChangeNotifier {
         }
 
         // Verifikasi Midtrans jika ada order ID
-        if (booking.midtransOrderId != null) {
+        if (booking.midtransOrderId != null && booking.midtransOrderId!.startsWith('SB-ADD')) {
           final midtransStatus = await _getMidtransTransactionStatus(booking.midtransOrderId!);
           if (midtransStatus != null) {
             switch (midtransStatus.toLowerCase()) {

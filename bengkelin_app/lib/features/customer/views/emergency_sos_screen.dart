@@ -251,6 +251,8 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
             ? '${_addressController.text.trim()} (Detail: ${_detailsController.text.trim()})'
             : _addressController.text.trim(),
         travelFee: mechanic['travel_fee'] as int,
+        latitude: _currentPosition?.latitude,
+        longitude: _currentPosition?.longitude,
       );
 
       if (mounted) {
@@ -869,38 +871,20 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
                                     currency.format(m['calling_fee']),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1B3A5E)),
                                   ),
-                                  Row(
-                                    children: [
-                                      OutlinedButton(
-                                        onPressed: () {
-                                          // Skip to next or dismiss
-                                          if (idx < _mechanics.length - 1) {
-                                            // Scroll to next
-                                          }
-                                        },
-                                        style: OutlinedButton.styleFrom(
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                                        ),
-                                        child: const Text('Lewati', style: TextStyle(fontSize: 12)),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _selectedMechanicIndex = idx;
-                                            _currentStep = 4; // Detail confirmation
-                                          });
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF1B3A5E),
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                                        ),
-                                        child: const Text('Pilih Mekanik', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      )
-                                    ],
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedMechanicIndex = idx;
+                                        _currentStep = 4; // Detail confirmation
+                                      });
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1B3A5E),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    ),
+                                    child: const Text('Pilih Mekanik', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                   )
                                 ],
                               ),
@@ -953,134 +937,142 @@ class _EmergencySosScreenState extends State<EmergencySosScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
-            
-            // Detail Card
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(color: Colors.grey.shade100),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Mekanik Terpilih',
-                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: const Color(0xFF1B3A5E).withValues(alpha: 0.1),
-                        child: const Icon(Icons.engineering, color: Color(0xFF1B3A5E), size: 32),
+            // Wrap in scrollable view to prevent overflow on small devices
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    // Detail Card
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                        border: Border.all(color: Colors.grey.shade100),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              m['name'],
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1B3A5E)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Mekanik Terpilih',
+                            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 28,
+                                backgroundColor: const Color(0xFF1B3A5E).withValues(alpha: 0.1),
+                                child: const Icon(Icons.engineering, color: Color(0xFF1B3A5E), size: 32),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      m['name'],
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1B3A5E)),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.star, color: Colors.amber, size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${m['rating']} (${m['services_count']} ulasan)',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      m['specialist'],
+                                      style: const TextStyle(color: Colors.black54, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            ],
+                          ),
+                          
+                          const Divider(height: 32),
+                          
+                          _buildDetailRow('Estimasi tiba', '~${m['time_estimate']} menit'),
+                          const SizedBox(height: 12),
+                          _buildDetailRow('Jarak', '${m['distance']} km'),
+                          const SizedBox(height: 12),
+                          _buildDetailRow('Biaya ongkir / DP (Rp 5.000/km)', currency.format(m['travel_fee'])),
+                          const SizedBox(height: 12),
+                          _buildDetailRow('Biaya Panggilan', currency.format(m['calling_fee'])),
+                          
+                          const Divider(height: 32),
+                          
+                          // Note box
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            const SizedBox(height: 4),
-                            Row(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.star, color: Colors.amber, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${m['rating']} (${m['services_count']} ulasan)',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                const Icon(Icons.info_outline, color: Colors.blue, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Catatan: Biaya panggilan di atas adalah estimasi panggilan mekanik. Biaya ongkir sebesar ${currency.format(m['travel_fee'])} wajib dibayarkan terlebih dahulu sebagai DP sebelum mekanik berangkat.',
+                                    style: const TextStyle(fontSize: 11, color: Colors.black87),
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              m['specialist'],
-                              style: const TextStyle(color: Colors.black54, fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                  
-                  const Divider(height: 32),
-                  
-                  _buildDetailRow('Estimasi tiba', '~${m['time_estimate']} menit'),
-                  const SizedBox(height: 12),
-                  _buildDetailRow('Jarak', '${m['distance']} km'),
-                  const SizedBox(height: 12),
-                  _buildDetailRow('Biaya ongkir / DP (Rp 5.000/km)', currency.format(m['travel_fee'])),
-                  const SizedBox(height: 12),
-                  _buildDetailRow('Biaya Panggilan', currency.format(m['calling_fee'])),
-                  
-                  const Divider(height: 32),
-                  
-                  // Note box
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.info_outline, color: Colors.blue, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Catatan: Biaya panggilan di atas adalah estimasi panggilan mekanik. Biaya ongkir sebesar ${currency.format(m['travel_fee'])} wajib dibayarkan terlebih dahulu sebagai DP sebelum mekanik berangkat.',
-                            style: const TextStyle(fontSize: 11, color: Colors.black87),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => setState(() => _currentStep = 3),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text('Ganti Mekanik', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
+                          
+                          const SizedBox(height: 32),
+                          
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => setState(() => _currentStep = 3),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  child: const Text('Ganti Mekanik', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => _submitSosOrder(m),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF00C853),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  child: const Text('Konfirmasi Pesanan', style: TextStyle(fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          )
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _submitSosOrder(m),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00C853),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text('Konfirmasi Pesanan', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  )
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

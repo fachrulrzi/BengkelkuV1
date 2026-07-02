@@ -191,12 +191,33 @@ class BengkelBookingViewModel extends ChangeNotifier {
   Future<void> completeService(String bookingId, String report, int finalPrice) async {
     _setLoading(true);
     try {
+      // Ambil detail booking untuk cek kategori service dan initial payment
+      final bookingRes = await _supabase
+          .from('service_bookings')
+          .select('service_category, initial_payment_amount')
+          .eq('id', bookingId)
+          .single();
+      
+      final serviceCategory = bookingRes['service_category']?.toString();
+      final initialPayment = (bookingRes['initial_payment_amount'] as num?)?.toInt() ?? 0;
+      final isSos = serviceCategory == 'SOS';
+      
+      final additionalPrice = finalPrice - initialPayment;
+      
+      final finalStatus = isSos
+          ? (additionalPrice > 0 ? 'Menunggu Pelunasan' : 'Selesai')
+          : (additionalPrice > 0 ? 'Menunggu Pembayaran Tambahan' : 'Selesai');
+
       await _supabase
           .from('service_bookings')
           .update({
-            'status': 'Selesai',
+            'status': finalStatus,
             'service_report': report,
+            'additional_price': additionalPrice,
+            'additional_payment_status': additionalPrice > 0 ? 'unpaid' : 'none',
             'total_price': finalPrice,
+            'midtrans_order_id': null,
+            'payment_url': null,
           })
           .eq('id', bookingId);
       

@@ -195,8 +195,8 @@ class _MekanikJourneyScreenState extends State<MekanikJourneyScreen> {
     if (phone == null || phone.isEmpty || phone == '-') {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Nomor telepon customer tidak tersedia'), backgroundColor: Colors.blue),
-);
+          const SnackBar(content: Text('Nomor telepon customer tidak tersedia'), backgroundColor: Colors.red),
+        );
       }
       return;
     }
@@ -206,20 +206,12 @@ class _MekanikJourneyScreenState extends State<MekanikJourneyScreen> {
     }
     final whatsappUrl = Uri.parse('https://wa.me/$formattedPhone');
     try {
-      if (await canLaunchUrl(whatsappUrl)) {
-        await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Gagal membuka WhatsApp'), backgroundColor: Colors.blue),
-);
-        }
-      }
+      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Gagal membuka WhatsApp'), backgroundColor: Colors.blue),
-);
+          const SnackBar(content: Text('Gagal membuka WhatsApp'), backgroundColor: Colors.red),
+        );
       }
     }
   }
@@ -262,20 +254,12 @@ class _MekanikJourneyScreenState extends State<MekanikJourneyScreen> {
       'https://www.google.com/maps/search/?api=1&query=${_customerLoc.latitude},${_customerLoc.longitude}'
     );
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Gagal membuka Google Maps'), backgroundColor: Colors.blue),
-);
-        }
-      }
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Gagal membuka Google Maps'), backgroundColor: Colors.blue),
-);
+          const SnackBar(content: Text('Gagal membuka Google Maps'), backgroundColor: Colors.red),
+        );
       }
     }
   }
