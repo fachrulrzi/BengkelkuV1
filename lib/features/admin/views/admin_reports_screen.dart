@@ -242,6 +242,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         const SizedBox(width: 8),
                         _buildFilterButton('pending', 'Pending (${vm.reports.where((r) => r.status == 'pending').length})'),
                         const SizedBox(width: 8),
+                        _buildFilterButton('reviewed', 'Ditinjau (${vm.reports.where((r) => r.status == 'reviewed').length})'),
+                        const SizedBox(width: 8),
                         _buildFilterButton('suspended', 'Suspended (${vm.reports.where((r) => r.status == 'suspended').length})'),
                         const SizedBox(width: 8),
                         _buildFilterButton('dismissed', 'Abaikan (${vm.reports.where((r) => r.status == 'dismissed').length})'),
@@ -335,7 +337,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
   Widget _buildReportCard(WorkshopReportModel report) {
     final dateStr = DateFormat('dd MMM yyyy, HH:mm').format(report.createdAt);
-    final isPending = report.status == 'pending';
+    final isPending = report.status.toLowerCase().trim() == 'pending';
     
     Color statusColor = Colors.orange;
     String statusText = 'Pending';
@@ -345,6 +347,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     } else if (report.status == 'dismissed') {
       statusColor = Colors.grey;
       statusText = 'Diabaikan';
+    } else if (report.status == 'reviewed') {
+      statusColor = Colors.blue;
+      statusText = 'Ditinjau';
     }
 
     return Container(
@@ -534,7 +539,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           ],
 
           // Actions
-          if (isPending) ...[
+          if (isPending || report.status == 'reviewed') ...[
             Row(
               children: [
                 Expanded(

@@ -6,6 +6,7 @@ import '../viewmodels/bengkel_mechanic_viewmodel.dart';
 import '../models/mechanic_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'add_mechanic_bottom_sheet.dart';
+import 'edit_mechanic_bottom_sheet.dart';
 
 class BengkelMechanicsScreen extends StatefulWidget {
   const BengkelMechanicsScreen({super.key});
@@ -366,6 +367,15 @@ class _BengkelMechanicsScreenState extends State<BengkelMechanicsScreen> {
           // Actions
           Row(
             children: [
+              _buildIconButton(Icons.edit, () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => EditMechanicBottomSheet(mechanic: mechanic),
+                );
+              }),
+              const SizedBox(width: 8),
               _buildIconButton(Icons.phone, () => _launchWhatsApp(mechanic.phone)),
             ],
           ),
@@ -394,8 +404,8 @@ class _BengkelMechanicsScreenState extends State<BengkelMechanicsScreen> {
     if (phone.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Nomor telepon mekanik tidak tersedia'), backgroundColor: Colors.blue),
-);
+          const SnackBar(content: Text('Nomor telepon mekanik tidak tersedia'), backgroundColor: Colors.blue),
+        );
       }
       return;
     }
@@ -413,8 +423,8 @@ class _BengkelMechanicsScreenState extends State<BengkelMechanicsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Tidak dapat membuka WhatsApp'), backgroundColor: Colors.blue),
-);
+          const SnackBar(content: Text('Tidak dapat membuka WhatsApp'), backgroundColor: Colors.blue),
+        );
       }
     }
   }

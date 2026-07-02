@@ -33,10 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final authViewModel = context.read<AuthViewModel>();
-      // Logout otomatis saat awal buka aplikasi sesuai request
-      await authViewModel.signOut();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
           _isInitializing = false;

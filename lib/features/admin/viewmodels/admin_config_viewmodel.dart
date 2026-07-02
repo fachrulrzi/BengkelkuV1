@@ -486,12 +486,33 @@ class AdminConfigViewModel extends ChangeNotifier {
   Future<void> fetchUsers() async {
     _setLoading(true);
     try {
-      final response = await _supabase
+      // 1. Ambil data dari tabel users (Customer, Bengkel, Admin)
+      final usersResponse = await _supabase
           .from('users')
           .select()
           .order('created_at', ascending: false);
-      final List<dynamic> data = response;
-      _users = data.map((e) => UserModel.fromJson(e)).toList();
+      final List<dynamic> usersData = usersResponse;
+      List<UserModel> allUsers = usersData.map((e) => UserModel.fromJson(e)).toList();
+
+      // 2. Ambil data dari tabel mechanics (Mekanik)
+      final mechanicsResponse = await _supabase
+          .from('mechanics')
+          .select()
+          .order('created_at', ascending: false);
+      final List<dynamic> mechanicsData = mechanicsResponse;
+      List<UserModel> mechanicsList = mechanicsData.map((e) {
+        return UserModel(
+          id: e['id'] as String,
+          name: e['name'] as String? ?? 'Mekanik',
+          email: e['email'] as String? ?? '',
+          phone: e['phone'] as String?,
+          role: UserRole.mekanik,
+        );
+      }).toList();
+
+      // Gabungkan keduanya
+      allUsers.addAll(mechanicsList);
+      _users = allUsers;
     } catch (e) {
       debugPrint('Error fetching users: $e');
     } finally {
@@ -509,18 +530,30 @@ class AdminConfigViewModel extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      await _supabase.rpc('create_new_user', params: {
-        'p_email': email,
-        'p_password': password,
-        'p_full_name': fullName,
-        'p_phone': phone,
-        'p_address': address,
-        'p_role': role,
-      });
+      if (role.toLowerCase() == 'mekanik') {
+        await _supabase.from('mechanics').insert({
+          'name': fullName,
+          'email': email,
+          'password': password,
+          'phone': phone,
+          'status': 'Tersedia',
+          'rating': 5.0,
+          'services_count': 0,
+        });
+      } else {
+        await _supabase.rpc('create_new_user', params: {
+          'p_email': email,
+          'p_password': password,
+          'p_full_name': fullName,
+          'p_phone': phone,
+          'p_address': address,
+          'p_role': role,
+        });
+      }
       await fetchUsers();
       await fetchDashboardStats();
     } catch (e) {
-      debugPrint('Error adding user via RPC: $e');
+      debugPrint('Error adding user: $e');
       rethrow;
     } finally {
       _setLoading(false);
@@ -537,17 +570,25 @@ class AdminConfigViewModel extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      await _supabase.rpc('update_existing_user', params: {
-        'p_user_id': id,
-        'p_email': email,
-        'p_full_name': fullName,
-        'p_phone': phone,
-        'p_address': address,
-        'p_role': role,
-      });
+      if (role.toLowerCase() == 'mekanik') {
+        await _supabase.from('mechanics').update({
+          'name': fullName,
+          'email': email,
+          'phone': phone,
+        }).eq('id', id);
+      } else {
+        await _supabase.rpc('update_existing_user', params: {
+          'p_user_id': id,
+          'p_email': email,
+          'p_full_name': fullName,
+          'p_phone': phone,
+          'p_address': address,
+          'p_role': role,
+        });
+      }
       await fetchUsers();
     } catch (e) {
-      debugPrint('Error updating user via RPC: $e');
+      debugPrint('Error updating user: $e');
       rethrow;
     } finally {
       _setLoading(false);
@@ -557,9 +598,17 @@ class AdminConfigViewModel extends ChangeNotifier {
   Future<void> deleteUser(String id) async {
     _setLoading(true);
     try {
-      await _supabase.rpc('delete_existing_user', params: {
-        'p_user_id': id,
-      });
+      final user = _users.firstWhere(
+        (u) => u.id == id,
+        orElse: () => throw Exception('User not found'),
+      );
+      if (user.role == UserRole.mekanik) {
+        await _supabase.from('mechanics').delete().eq('id', id);
+      } else {
+        await _supabase.rpc('delete_existing_user', params: {
+          'p_user_id': id,
+        });
+      }
       await fetchUsers();
       await fetchDashboardStats();
     } catch (e) {

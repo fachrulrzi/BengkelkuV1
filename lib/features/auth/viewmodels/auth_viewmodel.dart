@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
 class AuthViewModel extends ChangeNotifier {
@@ -64,6 +65,10 @@ class AuthViewModel extends ChangeNotifier {
           throw Exception('Password mekanik salah.');
         }
         _mechanicData = mechanicResult;
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('mechanic_id', mechanicResult['id']);
+
         _currentUser = UserModel(
           id: mechanicResult['id'] as String,
           name: mechanicResult['name'] as String? ?? 'Mekanik',
@@ -78,66 +83,88 @@ class AuthViewModel extends ChangeNotifier {
 
       // 2. Cari email di tabel users by email, phone, atau full_name
       String resolvedEmail = trimmedIdentifier;
-      try {
-        Map<String, dynamic>? userData;
-        
-        userData = await _supabase
-            .from('users')
-            .select()
-            .eq('email', trimmedIdentifier)
-            .maybeSingle();
-
-        if (userData == null) {
+      if (!trimmedIdentifier.contains('@')) {
+        try {
+          Map<String, dynamic>? userData;
+          
           userData = await _supabase
               .from('users')
               .select()
               .eq('phone', trimmedIdentifier)
               .maybeSingle();
-        }
 
-        if (userData == null) {
-          userData = await _supabase
-              .from('users')
-              .select()
-              .eq('full_name', trimmedIdentifier)
-              .maybeSingle();
-        }
+          if (userData == null) {
+            userData = await _supabase
+                .from('users')
+                .select()
+                .eq('full_name', trimmedIdentifier)
+                .maybeSingle();
+          }
 
-        if (userData != null && userData['email'] != null) {
-          resolvedEmail = userData['email'] as String;
+          if (userData != null && userData['email'] != null) {
+            resolvedEmail = userData['email'] as String;
+          } else {
+            throw Exception('Username atau No HP tidak terdaftar.');
+          }
+        } catch (userLookupError) {
+          debugPrint('[Auth] User lookup failed: $userLookupError');
+          if (userLookupError is Exception) {
+            rethrow; // Rethrow our custom Exception
+          }
+          throw Exception('Gagal mencari akun (Mungkin terblokir RLS). Harap gunakan Email.');
         }
-      } catch (userLookupError) {
-        debugPrint('[Auth] User lookup failed: $userLookupError');
+      } else {
+         // Jika sudah format email, opsional cari di users, atau biarkan resolvedEmail = trimmedIdentifier
+         try {
+            final userData = await _supabase
+                .from('users')
+                .select()
+                .eq('email', trimmedIdentifier)
+                .maybeSingle();
+            if (userData != null && userData['email'] != null) {
+               resolvedEmail = userData['email'] as String;
+            }
+         } catch(e) {
+            // Abaikan jika pakai email tapi gagal lookup (RLS), karena signInWithPassword tetap bisa jalan
+         }
       }
 
       // 3. Login via Supabase Auth
-      final response = await _supabase.auth.signInWithPassword(
-        email: resolvedEmail,
-        password: password,
-      );
+      try {
+        final response = await _supabase.auth.signInWithPassword(
+          email: resolvedEmail,
+          password: password,
+        );
 
-      if (response.user != null) {
-        final userData = await _supabase
-            .from('users')
-            .select()
-            .eq('id', response.user!.id)
-            .maybeSingle();
+        if (response.user != null) {
+          final userData = await _supabase
+              .from('users')
+              .select()
+              .eq('id', response.user!.id)
+              .maybeSingle();
 
-        if (userData != null) {
-          _currentUser = UserModel.fromJson(userData);
-        } else {
-          final data = response.user!.userMetadata;
-          _currentUser = UserModel(
-            id: response.user!.id,
-            name: data?['full_name'] ?? 'User',
-            email: response.user!.email ?? resolvedEmail,
-            phone: data?['phone'],
-            role: UserRole.values.firstWhere(
-              (e) => e.name == (data?['role'] ?? 'customer'),
-              orElse: () => UserRole.customer,
-            ),
-          );
+          if (userData != null) {
+            _currentUser = UserModel.fromJson(userData);
+          } else {
+            final data = response.user!.userMetadata;
+            _currentUser = UserModel(
+              id: response.user!.id,
+              name: data?['full_name'] ?? 'User',
+              email: response.user!.email ?? resolvedEmail,
+              phone: data?['phone'],
+              role: UserRole.values.firstWhere(
+                (e) => e.name == (data?['role'] ?? 'customer'),
+                orElse: () => UserRole.customer,
+              ),
+            );
+          }
         }
+      } catch (error) {
+        _setLoading(false);
+        if (error is AuthException && error.message.contains('Invalid login credentials')) {
+           throw Exception('Password salah (Mencoba login ke email: $resolvedEmail)');
+        }
+        rethrow;
       }
     } catch (error) {
       _setLoading(false);
@@ -161,9 +188,38 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> checkSession() async {
+    _setLoading(true);
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mechanicId = prefs.getString('mechanic_id');
+      if (mechanicId != null) {
+        final mechanicResult = await _supabase
+            .from('mechanics')
+            .select()
+            .eq('id', mechanicId)
+            .maybeSingle();
+            
+        if (mechanicResult != null) {
+          _mechanicData = mechanicResult;
+          _currentUser = UserModel(
+            id: mechanicResult['id'] as String,
+            name: mechanicResult['name'] as String? ?? 'Mekanik',
+            email: mechanicResult['email'] as String? ?? '',
+            phone: mechanicResult['phone'] as String?,
+            role: UserRole.mekanik,
+          );
+          _setLoading(false);
+          notifyListeners();
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking mechanic session: $e');
+    }
+
     final session = _supabase.auth.currentSession;
     if (session != null) {
-      _setLoading(true);
       try {
         final userData = await _supabase
             .from('users')
@@ -195,6 +251,7 @@ class AuthViewModel extends ChangeNotifier {
       }
     } else {
       _currentUser = null;
+      _setLoading(false);
       // Do not call notifyListeners here synchronously - it causes setState during build
       Future.microtask(() => notifyListeners());
     }
@@ -203,6 +260,9 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> signOut() async {
     _setLoading(true);
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('mechanic_id');
+
       // Jika mekanik, tidak perlu signOut dari Supabase Auth
       if (_currentUser?.role != UserRole.mekanik) {
         await _supabase.auth.signOut();

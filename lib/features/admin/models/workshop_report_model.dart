@@ -28,7 +28,7 @@ class WorkshopReportModel {
       bengkelId: map['bengkel_id']?.toString() ?? '',
       reason: map['reason']?.toString() ?? '',
       evidenceUrl: map['evidence_url']?.toString(),
-      status: map['status']?.toString() ?? 'pending',
+      status: map['status']?.toString().toLowerCase() ?? 'pending',
       createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
       reporter: map['reporter'] as Map<String, dynamic>?,
       bengkel: map['bengkels'] as Map<String, dynamic>?,

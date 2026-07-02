@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'login_screen.dart';
+import '../viewmodels/auth_viewmodel.dart';
+import '../models/user_model.dart';
+import '../../admin/views/admin_main_screen.dart';
+import '../../bengkel/views/bengkel_main_screen.dart';
+import '../../customer/views/customer_main_screen.dart';
+import '../../mekanik/views/mekanik_main_screen.dart';
+import '../../mekanik/viewmodels/mekanik_dashboard_viewmodel.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -64,13 +72,40 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigateAfterDelay() async {
-    await Future.delayed(const Duration(milliseconds: 2800));
+    final authViewModel = context.read<AuthViewModel>();
+    
+    // Perform session check alongside delay
+    await Future.wait([
+      Future.delayed(const Duration(milliseconds: 2800)),
+      authViewModel.checkSession(),
+    ]);
+
     if (!mounted) return;
+
+    final currentUser = authViewModel.currentUser;
+    Widget nextScreen = const LoginScreen();
+
+    if (currentUser != null) {
+      final role = currentUser.role;
+      if (role == UserRole.admin) {
+        nextScreen = const AdminMainScreen();
+      } else if (role == UserRole.bengkel) {
+        nextScreen = const BengkelMainScreen();
+      } else if (role == UserRole.mekanik) {
+        final mechData = authViewModel.mechanicData;
+        if (mechData != null) {
+          context.read<MekanikDashboardViewModel>().setMechanicData(mechData);
+        }
+        nextScreen = const MekanikMainScreen();
+      } else {
+        nextScreen = const CustomerMainScreen();
+      }
+    }
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 500),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const LoginScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -281,13 +316,13 @@ class _SplashScreenState extends State<SplashScreen>
               ),
 
               // Version tag bottom
-              FadeTransition(
-                opacity: _taglineFade,
-                child: const Positioned(
-                  bottom: 20,
-                  left: 0,
-                  right: 0,
-                  child: Text(
+              Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: FadeTransition(
+                  opacity: _taglineFade,
+                  child: const Text(
                     'v1.0.0',
                     textAlign: TextAlign.center,
                     style: TextStyle(

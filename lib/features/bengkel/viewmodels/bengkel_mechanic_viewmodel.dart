@@ -83,4 +83,39 @@ class BengkelMechanicViewModel extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  Future<void> updateMechanic({
+    required String mechanicId,
+    required String bengkelId,
+    required String name,
+    required String email,
+    required String phone,
+    required String specialist,
+    String? password,
+  }) async {
+    _setLoading(true);
+    try {
+      final updateData = {
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'specialist': specialist,
+      };
+      if (password != null && password.isNotEmpty) {
+        updateData['password'] = password;
+      }
+      
+      await _supabase
+          .from('mechanics')
+          .update(updateData)
+          .eq('id', mechanicId);
+          
+      await fetchMechanics(bengkelId);
+    } catch (e) {
+      debugPrint('Error updating mechanic: $e');
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
 }

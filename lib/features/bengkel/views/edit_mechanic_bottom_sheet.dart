@@ -4,22 +4,42 @@ import '../../../core/constants/app_colors.dart';
 import '../viewmodels/bengkel_mechanic_viewmodel.dart';
 import '../viewmodels/bengkel_dashboard_viewmodel.dart';
 import '../../admin/viewmodels/admin_config_viewmodel.dart';
+import '../models/mechanic_model.dart';
 
-class AddMechanicBottomSheet extends StatefulWidget {
-  const AddMechanicBottomSheet({super.key});
+class EditMechanicBottomSheet extends StatefulWidget {
+  final MechanicModel mechanic;
+
+  const EditMechanicBottomSheet({super.key, required this.mechanic});
 
   @override
-  State<AddMechanicBottomSheet> createState() => _AddMechanicBottomSheetState();
+  State<EditMechanicBottomSheet> createState() => _EditMechanicBottomSheetState();
 }
 
-class _AddMechanicBottomSheetState extends State<AddMechanicBottomSheet> {
+class _EditMechanicBottomSheetState extends State<EditMechanicBottomSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final List<String> _selectedSpecialties = [];
+  List<String> _selectedSpecialties = [];
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = widget.mechanic.name;
+    _emailController.text = widget.mechanic.email;
+    _phoneController.text = widget.mechanic.phone;
+    _selectedSpecialties = widget.mechanic.specialist
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AdminConfigViewModel>().fetchCategories();
+    });
+  }
 
   @override
   void dispose() {
@@ -28,14 +48,6 @@ class _AddMechanicBottomSheetState extends State<AddMechanicBottomSheet> {
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminConfigViewModel>().fetchCategories();
-    });
   }
 
   void _submit() async {
@@ -51,25 +63,26 @@ class _AddMechanicBottomSheetState extends State<AddMechanicBottomSheet> {
       final dashboardVM = context.read<BengkelDashboardViewModel>();
 
       try {
-        await mechanicVM.addMechanic(
+        await mechanicVM.updateMechanic(
+          mechanicId: widget.mechanic.id,
           bengkelId: dashboardVM.bengkelId,
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           phone: _phoneController.text.trim(),
           specialist: _selectedSpecialties.join(', '),
-          password: _passwordController.text.trim(),
+          password: _passwordController.text.trim().isEmpty ? null : _passwordController.text.trim(),
         );
 
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Mekanik berhasil ditambahkan'), backgroundColor: Colors.blue),
+            const SnackBar(content: Text('Mekanik berhasil diperbarui'), backgroundColor: Colors.blue),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal menambahkan mekanik: $e'), backgroundColor: Colors.blue),
+            SnackBar(content: Text('Gagal memperbarui mekanik: $e'), backgroundColor: Colors.blue),
           );
         }
       }
@@ -103,7 +116,7 @@ class _AddMechanicBottomSheetState extends State<AddMechanicBottomSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Tambah Mekanik',
+                    'Edit Mekanik',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -192,7 +205,7 @@ class _AddMechanicBottomSheetState extends State<AddMechanicBottomSheet> {
               ),
               const SizedBox(height: 16),
               _buildTextField(
-                label: 'Password',
+                label: 'Password Baru (Kosongkan jika tidak ingin diubah)',
                 hint: 'Minimal 6 karakter',
                 controller: _passwordController,
                 obscureText: _obscurePassword,
@@ -230,7 +243,7 @@ class _AddMechanicBottomSheetState extends State<AddMechanicBottomSheet> {
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
                       : const Text(
-                          'Tambah Mekanik',
+                          'Simpan Perubahan',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

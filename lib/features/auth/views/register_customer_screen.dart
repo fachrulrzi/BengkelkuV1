@@ -6,6 +6,7 @@ import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import 'login_screen.dart';
+import '../../customer/views/customer_main_screen.dart';
 
 class RegisterCustomerScreen extends StatefulWidget {
   const RegisterCustomerScreen({super.key});
@@ -139,20 +140,26 @@ class _RegisterCustomerScreenState extends State<RegisterCustomerScreen> {
                           phone: _phoneController.text,
                           password: _passwordController.text,
                         );
+                        
+                        await authViewModel.login(
+                          _emailController.text,
+                          _passwordController.text,
+                        );
+
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Registrasi berhasil! Silakan login.'), backgroundColor: Colors.blue),
-);
+                          const SnackBar(content: Text('Registrasi berhasil! Anda langsung masuk.'), backgroundColor: Colors.blue),
+                        );
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          MaterialPageRoute(builder: (context) => const CustomerMainScreen()),
                           (route) => false,
                         );
                       } catch (e) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(content: Text('Registrasi gagal: ${e.toString()}'), backgroundColor: Colors.blue),
-);
+                          SnackBar(content: Text('Registrasi gagal: ${e.toString()}'), backgroundColor: Colors.blue),
+                        );
                       }
                     },
                   ),
